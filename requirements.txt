@@ -1,4 +1,3 @@
 fastapi
 uvicorn
-discord.py
 pydantic
