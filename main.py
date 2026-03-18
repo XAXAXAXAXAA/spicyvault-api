@@ -1,9 +1,9 @@
 import os
 import secrets
 import sqlite3
+import threading
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
-from threading import Thread
 from typing import Optional
 
 import discord
@@ -24,7 +24,7 @@ if not DISCORD_TOKEN:
 GUILD_ID = int(os.getenv("GUILD_ID", "0"))
 ROLE_ID = int(os.getenv("ROLE_ID", "0"))
 BOT_CHANNEL_ID = int(os.getenv("BOT_CHANNEL_ID", "0"))
-LOG_CHANNEL_ID = 1483043753923973243
+LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID", "1483043753923973243"))
 
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://spicyvault.online")
 LOCKR_URL = os.getenv("LOCKR_URL", "https://lockr.so/u6TypiAY")
@@ -181,6 +181,10 @@ class GenerateRequest(BaseModel):
     user_id: int
     guild_id: int
 
+@app.get("/")
+def root():
+    return {"ok": True, "service": "spicyvault-api"}
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -216,6 +220,7 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 TREE_GUILD = discord.Object(id=GUILD_ID)
+_bot_thread_started = False
 
 async def send_log_message(content: str) -> None:
     channel = bot.get_channel(LOG_CHANNEL_ID)
@@ -255,10 +260,6 @@ def build_panel_embed(title: str, description: str, color_hex: str, image_url: s
         embed.set_image(url=image_url.strip())
     embed.set_footer(text="One-time use • User-bound • Auto-removes after expiry")
     return embed
-
-# =========================
-# PANEL BUILDER
-# =========================
 
 class PanelConfigModal(discord.ui.Modal, title="Customize Panel"):
     panel_title = discord.ui.TextInput(
@@ -357,10 +358,6 @@ class PanelPreviewView(discord.ui.View):
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Panel send cancelled.", ephemeral=True)
 
-# =========================
-# LOCKR + KEYGEN VIEWS
-# =========================
-
 class ContinueView(discord.ui.View):
     def __init__(self, user_id: int, guild_id: int):
         super().__init__(timeout=300)
@@ -382,8 +379,8 @@ class ContinueView(discord.ui.View):
         embed = discord.Embed(
             title=f"{BRAND_NAME} • Key Generator",
             description=(
-                "1. Opened Lockr\n"
-                "2. Now click the button below\n"
+                "1. Open Lockr\n"
+                "2. Then click button below\n"
                 "3. Generate your 6-character key\n"
                 "4. Come back and redeem it"
             ),
@@ -509,10 +506,6 @@ class RedeemModal(discord.ui.Modal, title="Redeem your key"):
         embed.add_field(name="Expires", value=role_expires_at.strftime("%Y-%m-%d %H:%M UTC"), inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# =========================
-# EVENTS / COMMANDS / TASKS
-# =========================
-
 @bot.event
 async def on_ready():
     bot.add_view(KeyPanel())
@@ -572,13 +565,15 @@ async def role_cleanup():
 
         clear_role_expiry(code)
 
-def run_web():
-    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="info")
-
-def main():
-    init_db()
-    Thread(target=run_web, daemon=True).start()
+def run_bot():
     bot.run(DISCORD_TOKEN)
 
-if __name__ == "__main__":
-    main()
+@app.on_event("startup")
+async def startup_event():
+    global _bot_thread_started
+    init_db()
+
+    if not _bot_thread_started:
+        thread = threading.Thread(target=run_bot, daemon=True)
+        thread.start()
+        _bot_thread_started = True
