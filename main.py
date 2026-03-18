@@ -23,8 +23,8 @@ if not DISCORD_TOKEN:
 
 GUILD_ID = int(os.getenv("GUILD_ID", "0"))
 ROLE_ID = int(os.getenv("ROLE_ID", "0"))
-BOT_CHANNEL_ID = int(os.getenv("BOT_CHANNEL_ID", "0"))  # kanal za create keys / panel
-LOG_CHANNEL_ID = 1483043753923973243  # logs kanal koji si dao
+BOT_CHANNEL_ID = int(os.getenv("BOT_CHANNEL_ID", "0"))
+LOG_CHANNEL_ID = 1483043753923973243
 
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://spicyvault.online")
 LOCKR_URL = os.getenv("LOCKR_URL", "https://lockr.so/u6TypiAY")
@@ -207,7 +207,7 @@ def api_generate_key(payload: GenerateRequest, request: Request):
     }
 
 # =========================
-# DISCORD BOT HELPERS
+# DISCORD BOT
 # =========================
 
 intents = discord.Intents.default()
@@ -358,7 +358,7 @@ class PanelPreviewView(discord.ui.View):
         await interaction.response.send_message("Panel send cancelled.", ephemeral=True)
 
 # =========================
-# KEY PANEL / LOCKR / REDEEM
+# LOCKR + KEYGEN VIEWS
 # =========================
 
 class ContinueView(discord.ui.View):
@@ -367,9 +367,13 @@ class ContinueView(discord.ui.View):
         self.user_id = user_id
         self.guild_id = guild_id
 
-    @discord.ui.button(label="Open Lockr", style=discord.ButtonStyle.link, url=LOCKR_URL)
-    async def open_lockr(self, interaction: discord.Interaction, button: discord.ui.Button):
-        pass
+        self.add_item(
+            discord.ui.Button(
+                label="Open Lockr",
+                style=discord.ButtonStyle.link,
+                url=LOCKR_URL
+            )
+        )
 
     @discord.ui.button(label="Continue to Key Generator", style=discord.ButtonStyle.primary)
     async def continue_to_keygen(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -386,7 +390,13 @@ class ContinueView(discord.ui.View):
             color=0x8B5CF6
         )
         view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="Open Key Generator", style=discord.ButtonStyle.link, url=url))
+        view.add_item(
+            discord.ui.Button(
+                label="Open Key Generator",
+                style=discord.ButtonStyle.link,
+                url=url
+            )
+        )
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 class KeyPanel(discord.ui.View):
